@@ -1,0 +1,193 @@
+master: kube-apiserver
+etcd key-value server
+controller
+scheduler
+
+worker: kubelet 
+container runtime
+
+kubectl command line tool 
+	i.e 
+	kubectl run hello-minikube
+	kubectl cluster-info
+	kubectl get nodes
+	
+pod: 
+smallest kubernetes object
+containers encapsulated as pods
+single instance of an application
+multi-conainer pods (not the same app container)
+	shares the same network and storage
+
+deployment of pods:
+	kubectl run nginx --image=nginx (pulls from docker-hub)
+	kubectl get pods (list pods)
+	kubectl describe pods
+	kubectl get pods -o wide (IP and NODE fields included)
+	
+
+replication controllers:
+	multiple pods
+	auto replace failed pods
+	scales across multiple nodes
+
+replication controller vs replica set:	
+	replication controller is replaced by replica set
+	replica set is the new preferred technology, little difference
+
+ReplicationController:
+	yml: 
+		kind: ReplicationController
+		spec: template for pods
+		
+		i.e:
+
+		apiVersion: v1
+		kind: ReplicationController
+		metadata:
+		  name: myapp-rc
+		  labels:
+		    name: myapp
+		    type: frontend
+		spec:
+		  template:
+		    medatada:
+		      name: myapp-pod
+		      labels:
+		        app: myapp
+			type: frontend
+		    spec:
+		      containers:
+		        - name: nginx-container
+			  image: nginx
+	 	  replicas: 3
+
+	
+to create replication controller just run 
+	"kubectl run -f rc-definition.yml"
+to list replication controllers
+	"kubectl get replicationcontroller"
+	"kubectl get pods" for the created pods
+
+
+ReplicaSet:
+	yml:
+		kind: ReplicaSet
+		the rest is the same
+		one additional property is selector
+		
+
+		i.e
+
+		apiVersion: v1
+                kind: ReplicationController
+                metadata:
+                  name: myapp-rc
+                  labels:
+                    name: myapp
+                    type: frontend
+                spec:
+                  template:
+                    medatada:
+                      name: myapp-pod
+                      labels:
+                        app: myapp
+                        type: frontend
+                    spec:
+                      containers:
+                        - name: nginx-container
+                          image: nginx
+                  replicas: 3
+		  selector:
+		    matchLabels:
+		      type: frontend
+
+to create replica set 
+	"kubectl run -f replicaset-definition.yml"
+to get list of replicasets
+	"kubectl get replicaset"
+
+
+ReplicaSet knows which pods to consider by selector's matchLabels property
+	selector:
+	  matchLabels:
+	    type: frontend
+
+in this example, just considers pods labeled as type=frontend
+
+to change replicas number of instances
+	update the replicas i.e. update replicas: 6 in the file, then run
+		kubectl replace -f replicaset-definition.yml
+	scale via kubectl and file
+		kubectl scale --replicas=6 -f replicaset-definition.yml
+		- however, by this way it does not update file
+	scale via kubectl (just give replicaset=myapp-replicaset via cli)
+		kubectl scale --replicas=6 replicaset myapp-replicaset
+		- however, by this way it does not update file
+
+
+deployments:
+	configuration file is almost the same as replicaset
+	kind is Deployment in this case
+	creates additional deployment object as compared to the replicaset
+
+	to create deployment:	
+		"kubectl create -f deployment-definition.yml"
+	to list deployments:
+		"kubectl get deployments"
+	to list replicaset created by deployment
+		"kubectl get repicaset"
+	to list pods after deployment created
+		"kubectl get pods"
+	to list all objects
+		"kubectl get all"
+
+deployment strategy - update & rollback
+	recreate: kill all and create new pods with new version of the app
+		  this is not the default strategy of kubernetes
+		  this way, application goes down
+	rolling-update: default deployment strategy on kubernetes
+			destroys and creates one by one 
+	
+
+to change the version: 
+ 	update the file image and run the next line "apply" command
+		image: nginx:1.71.1
+		kubectl apply -f deployment-definition.yml
+	update via kubectl command
+		kubectl set image deployment/myapp-deployment \ ngnix=ngnix:1.91.1
+
+to rollback to the previous version
+	run the command
+	"kubectl rollout undo deployments/deployment-1
+	
+	"kubectl run nginx image=nginx" creates a deployment
+	"kubectl create -f deployment deployment-definition.yml
+	"kubectl get deployments
+	"kubectl apply -f deployment-definition.yml"
+	"kubectl set image deployment/deployment-1 ngnix=nginx1"
+	"kubectl rollout status deployment/deployment-1" rollout with status one by one
+	"kubectl rollout history deployment/deployment-1" lists revisions with change causes
+	"kubectl rollout undo deployment/deployment-1" takes back the previous revision
+
+	to record the change cause (the command) just add "--record" flag to the create command
+	"kubectl create -f deployment-definition.yml --record"
+
+	ig there is an error while rolling out, i.e. error while pulling the image from hub, 
+	run undo command to go back to the previous revision
+
+networking:
+	IP address is assigned to a pod
+	kubernetes private network ip address 10.244.0.0
+	pods are assigned to ip addresses 10.244.0.2, 10.244.0.3, 10.244.0.4 
+	pods in the same node are communicating between pods with these ip addresses
+	
+	in multi node kubernetes cluster, we should provide a networking solution
+	to achieve:
+		all containers/pods can communicate to one another without NAT
+		all nodes can communicate with all containers and vice-versa without NAT
+
+		--> cisco, vmware, flannel, cilium, NSX has solution for these
+
+	theese solutions when installed manages network and assign different ip addresses for nodes and 
+	pods running on the nodes
